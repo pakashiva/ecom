@@ -1,0 +1,23 @@
+services:
+  db: 
+    image: postgres:18.7
+    environment:
+      POSTGRES_DB: ecom
+      POSTGRES_USER: shiva
+      POSTGRES_PASSWORD: ${DBPASSWORD:?Set DBPASSWORD in .env}
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - postgre_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ["CMD-SHELL" , "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      retries: 3
+      timeout: 3s
+
+
+volumes:
+  postgre_data:
