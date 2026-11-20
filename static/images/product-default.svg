@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 740" fill="none">
+  <rect width="640" height="740" fill="#ECECE5"/>
+  <circle cx="480" cy="160" r="94" fill="#D9E5A0"/>
+  <path d="M72 580c86-75 169-91 248-49 81 43 159 38 248-15v224H72V580Z" fill="#D8DDCE"/>
+  <path d="M124 625c80-32 151-35 212-10 78 32 136 24 203-18v143H124V625Z" fill="#C6CFBB"/>
+  <ellipse cx="324" cy="602" rx="164" ry="22" fill="#9DAA91"/>
+  <path d="M270 341c0-29 23-52 52-52h28c29 0 52 23 52 52v212c0 43-35 78-78 78s-78-35-78-78V341Z" fill="url(#vase)"/>
+  <ellipse cx="336" cy="341" rx="66" ry="17" fill="#B97658"/>
+  <ellipse cx="336" cy="341" rx="42" ry="9" fill="#E9D5B6"/>
+  <path d="M322 333c-7-88-13-151-47-223M341 331c17-88 31-146 86-207M333 332c4-74 1-116 16-171" stroke="#526C4D" stroke-width="5" stroke-linecap="round"/>
+  <path d="M267 148c-42-7-70-34-72-77 45 1 77 23 87 63M425 165c35-31 73-35 108-12-26 37-62 51-101 38M346 213c-37-5-61-27-67-63 39 0 67 19 76 52" fill="#73885F"/>
+  <path d="M80 80h94M80 96h54" stroke="#315947" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+  <rect x="76" y="640" width="488" height="1" fill="#AEB8A5"/>
+  <text x="80" y="674" fill="#596A54" font-family="Arial,sans-serif" font-size="13" letter-spacing="3">COMMON GOODS · EVERYDAY OBJECTS</text>
+  <defs>
+    <linearGradient id="vase" x1="258" y1="378" x2="403" y2="442" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D99C75"/><stop offset=".58" stop-color="#C98460"/><stop offset="1" stop-color="#AA6B52"/>
+    </linearGradient>
+  </defs>
+</svg>

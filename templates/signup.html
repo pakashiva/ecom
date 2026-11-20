@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f7f2">
+    <title>Create account — Common Goods</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/store.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body class="auth-page">
+    <header class="site-header auth-header">
+        <a class="wordmark" href="{{ url_for('home') }}" aria-label="Common Goods home">
+            <span class="wordmark-mark">c.</span>
+            <span>common<span class="wordmark-light">goods</span></span>
+        </a>
+        <a class="back-link" href="{{ url_for('home') }}"><span aria-hidden="true">←</span> Back to shop</a>
+    </header>
+
+    <main class="auth-main">
+        <section class="auth-art signup-art" aria-label="Common Goods">
+            <img src="{{ url_for('static', filename='images/product-default.svg') }}" alt="Illustrated vase and leaves">
+            <div class="auth-art-copy">
+                <p class="eyebrow">Make room for good things</p>
+                <h1>A more thoughtful<br><em>everyday starts here.</em></h1>
+            </div>
+            <span class="auth-art-caption">COMMON GOODS · OBJECTS FOR LIVING</span>
+        </section>
+
+        <section class="auth-panel" aria-labelledby="auth-title">
+            <div class="auth-form-wrap">
+                <p class="eyebrow">Join the collection</p>
+                <h2 id="auth-title">Create account.</h2>
+                <p class="auth-intro">A few details and you’re all set.</p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="form-messages" role="status">
+                            {% for category, message in messages %}<p class="form-message {{ category }}">{{ message }}</p>{% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+                {% if error %}<p class="form-message error" role="alert">{{ error }}</p>{% endif %}
+
+                <form class="auth-form" method="post" action="/signup">
+                    <label for="name">Full name</label>
+                    <input id="name" name="name" type="text" autocomplete="name" placeholder="Your name" required>
+
+                    <label for="email">Email address</label>
+                    <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" autocomplete="new-password" minlength="5" placeholder="At least 12 characters" required>
+                    <p class="field-hint">Use at least 12 characters. A phrase is easier to remember.</p>
+
+                    <button class="button button-dark auth-submit" type="submit">Create account <span aria-hidden="true">→</span></button>
+                </form>
+
+                <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
+                <p class="auth-legal">By creating an account, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="auth-footer"><span>© 2026 Common Goods</span><span>Thoughtful things for everyday.</span></footer>
+</body>
+</html>

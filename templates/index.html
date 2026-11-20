@@ -1,11 +1,152 @@
-<!DOCTYPE html>
+{% set demo_products = [
+    {'product_id': 1, 'product_name': 'Studio Wireless Headphones', 'category': 'Electronics', 'price': 2499.00, 'stock_quantity': 18},
+    {'product_id': 2, 'product_name': 'Arc Table Lamp', 'category': 'Home', 'price': 1890.00, 'stock_quantity': 12},
+    {'product_id': 3, 'product_name': 'Field Notes Set', 'category': 'Stationery', 'price': 349.00, 'stock_quantity': 42},
+    {'product_id': 4, 'product_name': 'Everyday Canvas Tote', 'category': 'Accessories', 'price': 590.00, 'stock_quantity': 27},
+    {'product_id': 5, 'product_name': 'Compact Bluetooth Speaker', 'category': 'Electronics', 'price': 3299.00, 'stock_quantity': 9},
+    {'product_id': 6, 'product_name': 'Ceramic Planter', 'category': 'Home', 'price': 799.00, 'stock_quantity': 31},
+    {'product_id': 7, 'product_name': 'Hardcover Journal', 'category': 'Stationery', 'price': 480.00, 'stock_quantity': 56},
+    {'product_id': 8, 'product_name': 'Everyday Steel Bottle', 'category': 'Accessories', 'price': 899.00, 'stock_quantity': 23},
+    {'product_id': 9, 'product_name': 'Mechanical Keyboard', 'category': 'Electronics', 'price': 5490.00, 'stock_quantity': 7},
+    {'product_id': 10, 'product_name': 'Soft Knit Throw', 'category': 'Home', 'price': 2190.00, 'stock_quantity': 14},
+    {'product_id': 11, 'product_name': 'Desk Planner', 'category': 'Stationery', 'price': 625.00, 'stock_quantity': 38},
+    {'product_id': 12, 'product_name': 'Minimal Card Holder', 'category': 'Accessories', 'price': 1190.00, 'stock_quantity': 19},
+] %}
+{% set demo_mode = products is not defined %}
+{% set catalog_products = demo_products if demo_mode else products %}
+{% set categories = ['All', 'Electronics', 'Home', 'Stationery', 'Accessories'] %}
+{% set selected_category = category|default(request.args.get('category', 'All')) %}
+{% set current_page = page|default(request.args.get('page', 1)|int) %}
+{% set page_count = total_pages|default(1) %}
+
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f7f2">
+    <title>Common Goods — thoughtful things for everyday</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/store.css') }}">
 </head>
-<body>
-    <h1>Hello User.</h1>
+<body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
+    <div class="announcement">A little more considered. A lot more everyday. <span>Free delivery on orders over ₹2,000</span></div>
+
+    <header class="site-header">
+        <a class="wordmark" href="{{ url_for('home') }}" aria-label="Common Goods home">
+            <span class="wordmark-mark">c.</span>
+            <span>common<span class="wordmark-light">goods</span></span>
+        </a>
+
+        <nav class="account-nav" aria-label="Account">
+            {% if logged_in|default(false) %}
+                <form action="/logout" method="post" class="logout-form">
+                    <button class="button button-dark button-small" type="submit">Log out</button>
+                </form>
+            {% else %}
+                <a class="login-link" href="/login">Log in</a>
+                <a class="button button-dark button-small" href="/signup">Create account</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow"><span class="eyebrow-line"></span> Everyday, made a little better</p>
+                <h1 id="hero-title">Good things.<br><em>Well chosen.</em></h1>
+                <p class="hero-description">Useful, lasting pieces for the spaces you live in and the days you fill.</p>
+                <a class="button button-accent" href="#catalog">Explore the collection <span aria-hidden="true">↘</span></a>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+                <div class="hero-orbit orbit-one"></div>
+                <div class="hero-orbit orbit-two"></div>
+                <div class="hero-sun"></div>
+                <div class="hero-vase vase-back"></div>
+                <div class="hero-vase vase-front"></div>
+                <div class="hero-stem stem-one"></div>
+                <div class="hero-stem stem-two"></div>
+                <div class="hero-leaf leaf-one"></div>
+                <div class="hero-leaf leaf-two"></div>
+                <div class="hero-leaf leaf-three"></div>
+                <div class="hero-base"></div>
+                <span class="hero-art-label">OBJECTS FOR LIVING · VOL. 01</span>
+            </div>
+            <div class="hero-index"><span>01</span><i></i><span>04</span></div>
+        </section>
+
+        <section class="catalog" id="catalog" aria-labelledby="catalog-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">The collection</p>
+                    <h2 id="catalog-title">Find your everyday</h2>
+                </div>
+                <p class="catalog-note">Small details. Better days.</p>
+            </div>
+
+            <nav class="category-nav" aria-label="Shop by category">
+                {% for item in categories %}
+                    <a class="category-link{% if selected_category == item %} is-active{% endif %}"
+                       href="{{ url_for('home', category=item, page=1) }}"
+                       {% if selected_category == item %}aria-current="page"{% endif %}>{{ item }}</a>
+                {% endfor %}
+            </nav>
+
+            <div class="results-row">
+                <p>{% if selected_category == 'All' %}A considered edit of everyday essentials{% else %}{{ selected_category }}{% endif %}</p>
+                {% if total_products is defined %}<span id="product-count">{{ total_products }} pieces</span>{% else %}<span id="product-count">Thoughtfully selected</span>{% endif %}
+            </div>
+
+            {% if catalog_products %}
+                <div class="product-grid" id="product-grid">
+                    {% for product in catalog_products %}
+                        <article class="product-card" data-category="{{ product.category }}">
+                            <a class="product-image-link" href="/products/{{ product.product_id }}" aria-label="View {{ product.product_name }}">
+                                <div class="product-image-wrap">
+                                    <img class="product-image" src="{{ url_for('static', filename='images/product-default.svg') }}" alt="{{ product.product_name }}" loading="lazy">
+                                    <span class="image-index">{{ '%02d'|format(loop.index) }}</span>
+                                    <span class="image-arrow" aria-hidden="true">↗</span>
+                                </div>
+                            </a>
+                            <div class="product-meta">
+                                <span class="product-category">{{ product.category }}</span>
+                                {% if product.stock_quantity is defined and product.stock_quantity <= 5 %}<span class="stock-note">Low stock</span>{% endif %}
+                            </div>
+                            <div class="product-info">
+                                <h3><a href="/products/{{ product.product_id }}">{{ product.product_name }}</a></h3>
+                                <p class="product-price">₹{{ '%.2f'|format(product.price|float) }}</p>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <span class="empty-mark">c.</span>
+                    <h3>Nothing on this shelf yet.</h3>
+                    <p>Try another category or check back soon.</p>
+                    <a href="{{ url_for('home', category='All', page=1) }}">Browse everything <span aria-hidden="true">→</span></a>
+                </div>
+            {% endif %}
+
+            <nav class="pagination" aria-label="Product pages">
+                <a id="previous-page" class="page-control{% if current_page|int <= 1 %} is-disabled{% endif %}" href="{{ url_for('home', category=selected_category, page=[current_page|int - 1, 1]|max) }}" {% if current_page|int <= 1 %}aria-disabled="true"{% endif %}><span aria-hidden="true">←</span> Previous</a>
+                <span class="page-status"><b id="current-page">{{ current_page }}</b><span> / </span><span id="page-count">{{ page_count }}</span></span>
+                <a id="next-page" class="page-control{% if current_page|int >= page_count|int %} is-disabled{% endif %}" href="{{ url_for('home', category=selected_category, page=current_page|int + 1) }}" {% if current_page|int >= page_count|int %}aria-disabled="true"{% endif %}>Next <span aria-hidden="true">→</span></a>
+            </nav>
+        </section>
+
+        <section class="closing-note" aria-label="Our approach">
+            <span class="closing-mark">✳</span>
+            <p>Less, but better. <em>Every single day.</em></p>
+            <span class="closing-caption">COMMON GOODS · EST. FOR THE EVERYDAY</span>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <a class="wordmark footer-wordmark" href="{{ url_for('home') }}"><span class="wordmark-mark">c.</span><span>common<span class="wordmark-light">goods</span></span></a>
+        <p>Thoughtful things for everyday.</p>
+        <span>© 2026 Common Goods</span>
+    </footer>
+
+    {% if demo_mode %}<script src="{{ url_for('static', filename='js/store-demo.js') }}" defer></script>{% endif %}
 </body>
 </html>
