@@ -29,6 +29,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/store.css') }}">
 </head>
 <body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
+    {% include "_flash_messages.html" %}
+    <script src="{{ url_for('static', filename='js/flash.js') }}" defer></script>
     <div class="announcement">A little more considered. A lot more everyday. <span>Free delivery on orders over ₹2,000</span></div>
 
     <header class="site-header">

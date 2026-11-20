@@ -1,13 +1,19 @@
-from flask import Flask , render_template, request, redirect, url_for
+from flask import Flask , render_template, request, redirect, url_for, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import engine
 from initialize_db.models import users
-from app_config import app , jwt
-from flask_jwt_extended import create_access_token , set_access_cookies
+from app_config import app , jwt , redis_client
+from flask_jwt_extended import (
+    create_access_token , set_access_cookies , jwt_required,
+    unset_jwt_cookies  , get_jwt, get_jwt_identity)
+import time
+
 
 @app.route('/')
+@jwt_required(optional=True)
 def home():
-    return render_template("index.html")
+    user_id = get_jwt_identity()
+    return render_template("index.html", logged_in=user_id is not None)
 
 # Login , singup , logout
 
@@ -31,15 +37,19 @@ def login():
                 user = connection.execute(statement=stmt).mappings().one_or_none()
 
             if user is None or not check_password_hash(user["password_hash"], password):
-                return "Invalid credentials or user does not exists"
+                flash("Email or password is incorrect.", "error")
+                return redirect(url_for("login"))
             else:
                 access_token = create_access_token(identity=str(user["id"]))
+                flash("Welcome back.", "success")
                 response = redirect(url_for("home"))
                 set_access_cookies(response , access_token)
                 return response
                        
-        except Exception as e:
-            return f"Error Occured {str(e)}"
+        except Exception:
+            app.logger.exception("Login failed")
+            flash("We couldn't sign you in right now. Please try again.", "error")
+            return redirect(url_for("login"))
         
     return render_template("login.html")
 
@@ -67,18 +77,29 @@ def signup():
                 user_id = connection.execute(statement=stmt).scalar_one()
 
             access_token = create_access_token(identity=str(user_id))
+            flash("Your account was created successfully.", "success")
             response =  redirect(url_for("home"))
             set_access_cookies(response , access_token)
             return response
 
-        except Exception as e:
-            return f"Error Occured {str(e)}"
+        except Exception:
+            app.logger.exception("Signup failed")
+            flash("We couldn't create your account. Check your details and try again.", "error")
+            return redirect(url_for("signup"))
 
     return render_template("signup.html")
 
-@app.route("/logout")
+@app.route("/logout" , methods = ['POST'])
+@jwt_required()
 def logout():
-    return "1"
+    token =  get_jwt()
+
+    ttl = max(1 , int(token["exp"] - time.time()) + 1)
+    redis_client.set(f"revoked:{token['jti']}" , 1 , ex=ttl)
+    response = redirect(url_for("home"))
+    unset_jwt_cookies(response)
+    flash("You have been logged out.", "success")
+    return response
 
 if __name__ == "__main__":
     print("listening..")
