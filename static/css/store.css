@@ -16,3 +16,25 @@
 @keyframes flash-enter{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:560px){.flash-stack{top:12px;right:12px;left:12px;width:auto}}
 @media(prefers-reduced-motion:reduce){.flash-message{animation:none}}
+.category-link{border:0;background:transparent;font-family:inherit;text-align:left;cursor:pointer}
+.empty-browse{display:inline-block;margin-top:10px;padding:0;border:0;background:transparent;color:var(--green);font:600 11px var(--sans);cursor:pointer}
+.catalog-state{padding:58px 20px;color:var(--muted);font-size:12px;text-align:center}
+.catalog-retry{display:block;margin:0 auto 24px}
+[hidden]{display:none!important}
+.wallet-nav-link{color:#555b52;font-size:11px}
+.wallet-nav-link:hover,.wallet-nav-link.is-current{color:var(--green)}
+.wallet-nav-link.is-current{font-weight:700}
+.product-card{display:flex;flex-direction:column}
+.stock-note{color:var(--green);font-size:9px;letter-spacing:0;text-transform:none}
+.stock-note.out-of-stock{color:#a3483c}
+.quantity-control{display:flex;align-items:center;gap:13px;margin-top:13px}
+.quantity-step{display:grid;width:31px;height:31px;place-items:center;border:1px solid #c9cec1;border-radius:50%;background:transparent;color:var(--green);cursor:pointer;font-size:18px;line-height:1}
+.quantity-step:hover:not(:disabled){border-color:var(--green);background:#e8eadf}
+.quantity-step:disabled{color:#aeb2a8;cursor:not-allowed;opacity:.65}
+.quantity-value{min-width:20px;color:var(--ink);font-size:12px;font-weight:600;text-align:center}
+.selected-cart-bar{position:sticky;z-index:4;bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:30px;padding:17px 20px;border:1px solid rgba(40,49,39,.12);background:rgba(255,254,250,.97);box-shadow:0 10px 35px rgba(32,36,30,.12);backdrop-filter:blur(10px)}
+.selected-cart-bar>div{display:grid;gap:5px}
+.selected-cart-bar strong{color:var(--ink);font-size:12px}
+.selected-cart-bar span{color:var(--muted);font-size:10px}
+.selected-cart-bar .button:disabled{background:#c9cec1;color:#73786d;cursor:not-allowed;transform:none}
+@media(max-width:560px){.selected-cart-bar{align-items:stretch;flex-direction:column;gap:12px;padding:14px}.selected-cart-bar .button{width:100%}}

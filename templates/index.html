@@ -1,23 +1,4 @@
-{% set demo_products = [
-    {'product_id': 1, 'product_name': 'Studio Wireless Headphones', 'category': 'Electronics', 'price': 2499.00, 'stock_quantity': 18},
-    {'product_id': 2, 'product_name': 'Arc Table Lamp', 'category': 'Home', 'price': 1890.00, 'stock_quantity': 12},
-    {'product_id': 3, 'product_name': 'Field Notes Set', 'category': 'Stationery', 'price': 349.00, 'stock_quantity': 42},
-    {'product_id': 4, 'product_name': 'Everyday Canvas Tote', 'category': 'Accessories', 'price': 590.00, 'stock_quantity': 27},
-    {'product_id': 5, 'product_name': 'Compact Bluetooth Speaker', 'category': 'Electronics', 'price': 3299.00, 'stock_quantity': 9},
-    {'product_id': 6, 'product_name': 'Ceramic Planter', 'category': 'Home', 'price': 799.00, 'stock_quantity': 31},
-    {'product_id': 7, 'product_name': 'Hardcover Journal', 'category': 'Stationery', 'price': 480.00, 'stock_quantity': 56},
-    {'product_id': 8, 'product_name': 'Everyday Steel Bottle', 'category': 'Accessories', 'price': 899.00, 'stock_quantity': 23},
-    {'product_id': 9, 'product_name': 'Mechanical Keyboard', 'category': 'Electronics', 'price': 5490.00, 'stock_quantity': 7},
-    {'product_id': 10, 'product_name': 'Soft Knit Throw', 'category': 'Home', 'price': 2190.00, 'stock_quantity': 14},
-    {'product_id': 11, 'product_name': 'Desk Planner', 'category': 'Stationery', 'price': 625.00, 'stock_quantity': 38},
-    {'product_id': 12, 'product_name': 'Minimal Card Holder', 'category': 'Accessories', 'price': 1190.00, 'stock_quantity': 19},
-] %}
-{% set demo_mode = products is not defined %}
-{% set catalog_products = demo_products if demo_mode else products %}
 {% set categories = ['All', 'Electronics', 'Home', 'Stationery', 'Accessories'] %}
-{% set selected_category = category|default(request.args.get('category', 'All')) %}
-{% set current_page = page|default(request.args.get('page', 1)|int) %}
-{% set page_count = total_pages|default(1) %}
 
 <!doctype html>
 <html lang="en">
@@ -28,7 +9,7 @@
     <title>Common Goods — thoughtful things for everyday</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/store.css') }}">
 </head>
-<body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
+<body data-product-image="{{ url_for('static', filename='images/product-default.svg') }}">
     {% include "_flash_messages.html" %}
     <script src="{{ url_for('static', filename='js/flash.js') }}" defer></script>
     <div class="announcement">A little more considered. A lot more everyday. <span>Free delivery on orders over ₹2,000</span></div>
@@ -41,6 +22,7 @@
 
         <nav class="account-nav" aria-label="Account">
             {% if logged_in|default(false) %}
+                <a class="wallet-nav-link" href="/wallet">Wallet</a>
                 <form action="/logout" method="post" class="logout-form">
                     <button class="button button-dark button-small" type="submit">Log out</button>
                 </form>
@@ -87,53 +69,40 @@
 
             <nav class="category-nav" aria-label="Shop by category">
                 {% for item in categories %}
-                    <a class="category-link{% if selected_category == item %} is-active{% endif %}"
-                       href="{{ url_for('home', category=item, page=1) }}"
-                       {% if selected_category == item %}aria-current="page"{% endif %}>{{ item }}</a>
+                    <button class="category-link{% if item == 'All' %} is-active{% endif %}"
+                            type="button" data-category="{{ item }}"
+                            aria-pressed="{{ 'true' if item == 'All' else 'false' }}">{{ item }}</button>
                 {% endfor %}
             </nav>
 
             <div class="results-row">
-                <p>{% if selected_category == 'All' %}A considered edit of everyday essentials{% else %}{{ selected_category }}{% endif %}</p>
-                {% if total_products is defined %}<span id="product-count">{{ total_products }} pieces</span>{% else %}<span id="product-count">Thoughtfully selected</span>{% endif %}
+                <p id="catalog-description">A considered edit of everyday essentials</p>
+                <span id="product-count" aria-live="polite">Loading products…</span>
             </div>
 
-            {% if catalog_products %}
-                <div class="product-grid" id="product-grid">
-                    {% for product in catalog_products %}
-                        <article class="product-card" data-category="{{ product.category }}">
-                            <a class="product-image-link" href="/products/{{ product.product_id }}" aria-label="View {{ product.product_name }}">
-                                <div class="product-image-wrap">
-                                    <img class="product-image" src="{{ url_for('static', filename='images/product-default.svg') }}" alt="{{ product.product_name }}" loading="lazy">
-                                    <span class="image-index">{{ '%02d'|format(loop.index) }}</span>
-                                    <span class="image-arrow" aria-hidden="true">↗</span>
-                                </div>
-                            </a>
-                            <div class="product-meta">
-                                <span class="product-category">{{ product.category }}</span>
-                                {% if product.stock_quantity is defined and product.stock_quantity <= 5 %}<span class="stock-note">Low stock</span>{% endif %}
-                            </div>
-                            <div class="product-info">
-                                <h3><a href="/products/{{ product.product_id }}">{{ product.product_name }}</a></h3>
-                                <p class="product-price">₹{{ '%.2f'|format(product.price|float) }}</p>
-                            </div>
-                        </article>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="empty-state">
-                    <span class="empty-mark">c.</span>
-                    <h3>Nothing on this shelf yet.</h3>
-                    <p>Try another category or check back soon.</p>
-                    <a href="{{ url_for('home', category='All', page=1) }}">Browse everything <span aria-hidden="true">→</span></a>
-                </div>
-            {% endif %}
+            <div class="catalog-state" id="catalog-state" role="status">Loading the collection…</div>
+            <button class="button button-dark catalog-retry" id="catalog-retry" type="button" hidden>Try again</button>
+            <div class="product-grid" id="product-grid" aria-live="polite" aria-busy="true"></div>
+            <div class="empty-state" id="empty-state" hidden>
+                <span class="empty-mark">c.</span>
+                <h3>Nothing on this shelf yet.</h3>
+                <p>Try another category or check back soon.</p>
+                <button class="empty-browse" type="button" data-category="All">Browse everything <span aria-hidden="true">→</span></button>
+            </div>
 
             <nav class="pagination" aria-label="Product pages">
-                <a id="previous-page" class="page-control{% if current_page|int <= 1 %} is-disabled{% endif %}" href="{{ url_for('home', category=selected_category, page=[current_page|int - 1, 1]|max) }}" {% if current_page|int <= 1 %}aria-disabled="true"{% endif %}><span aria-hidden="true">←</span> Previous</a>
-                <span class="page-status"><b id="current-page">{{ current_page }}</b><span> / </span><span id="page-count">{{ page_count }}</span></span>
-                <a id="next-page" class="page-control{% if current_page|int >= page_count|int %} is-disabled{% endif %}" href="{{ url_for('home', category=selected_category, page=current_page|int + 1) }}" {% if current_page|int >= page_count|int %}aria-disabled="true"{% endif %}>Next <span aria-hidden="true">→</span></a>
+                <button id="previous-page" class="page-control is-disabled" type="button" disabled><span aria-hidden="true">←</span> Previous</button>
+                <span class="page-status"><b id="current-page">1</b><span> / </span><span id="page-count">1</span></span>
+                <button id="next-page" class="page-control is-disabled" type="button" disabled>Next <span aria-hidden="true">→</span></button>
             </nav>
+
+            <div class="selected-cart-bar" aria-live="polite">
+                <div>
+                    <strong id="selected-cart-summary">No products selected</strong>
+                    <span>Choose quantities, then review your order.</span>
+                </div>
+                <button class="button button-dark" id="add-selected-to-cart" type="button" disabled>Add selected to cart <span aria-hidden="true">→</span></button>
+            </div>
         </section>
 
         <section class="closing-note" aria-label="Our approach">
@@ -149,6 +118,6 @@
         <span>© 2026 Common Goods</span>
     </footer>
 
-    {% if demo_mode %}<script src="{{ url_for('static', filename='js/store-demo.js') }}" defer></script>{% endif %}
+    <script src="{{ url_for('static', filename='js/catalog.js') }}" defer></script>
 </body>
 </html>
