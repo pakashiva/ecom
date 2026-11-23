@@ -4,7 +4,6 @@
     const orderItems = document.getElementById("order-items");
     const orderLineCount = document.getElementById("order-line-count");
     const orderSubtotal = document.getElementById("order-subtotal");
-    const orderDelivery = document.getElementById("order-delivery");
     const orderTotal = document.getElementById("order-total");
     const walletBalance = document.getElementById("order-wallet-balance");
     const balanceWarning = document.getElementById("balance-warning");
@@ -53,12 +52,10 @@
     function createOrderItem(item) {
         const productId = String(item.product_id);
         const quantity = Number(item.quantity);
-        const stockQuantity = Math.max(0, Number(item.stock_quantity) || 0);
         const row = document.createElement("article");
         row.className = "order-item";
         row.dataset.productId = productId;
         row.dataset.quantity = String(quantity);
-        row.dataset.stockQuantity = String(stockQuantity);
 
         const image = document.createElement("img");
         image.className = "order-item-image";
@@ -76,10 +73,6 @@
         const name = document.createElement("h3");
         name.className = "order-item-name";
         name.textContent = String(item.product_name ?? "");
-
-        const stock = document.createElement("p");
-        stock.className = stockQuantity === 0 ? "order-item-stock out-of-stock" : "order-item-stock";
-        stock.textContent = `${stockQuantity} in stock`;
 
         const controls = document.createElement("div");
         controls.className = "order-item-controls";
@@ -102,15 +95,14 @@
         increase.dataset.cartStep = "1";
         increase.setAttribute("aria-label", `Add one ${item.product_name}`);
         increase.textContent = "+";
-        increase.disabled = quantity >= stockQuantity;
 
         controls.append(decrease, value, increase);
-        details.append(category, name, stock, controls);
+        details.append(category, name, controls);
 
         const linePrice = document.createElement("div");
         linePrice.className = "order-item-price";
         const total = document.createElement("strong");
-        total.textContent = formatMoney(item.line_total);
+        total.textContent = formatMoney(Number(item.unit_price) * quantity);
         const unit = document.createElement("span");
         unit.textContent = `${formatMoney(item.unit_price)} each`;
         linePrice.append(total, unit);
@@ -132,10 +124,9 @@
         orderItems.replaceChildren(...items.map(createOrderItem));
         const unitCount = items.reduce((total, item) => total + Number(item.quantity), 0);
         orderLineCount.textContent = String(unitCount);
-        orderSubtotal.textContent = formatMoney(data.subtotal);
-        orderDelivery.textContent = formatMoney(data.delivery_fee);
-        orderTotal.textContent = formatMoney(data.total);
-        walletBalance.textContent = formatMoney(data.wallet_balance);
+        orderSubtotal.textContent = formatMoney(data.total_amount);
+        orderTotal.textContent = formatMoney(data.total_amount);
+        walletBalance.textContent = formatMoney(data.balance);
         ordersState.hidden = true;
         emptyState.hidden = true;
         orderContent.hidden = false;
@@ -145,8 +136,8 @@
     function syncCheckout() {
         if (!cart) return;
         const itemCount = Array.isArray(cart.items) ? cart.items.length : 0;
-        const total = Number(cart.total);
-        const balance = Number(cart.wallet_balance);
+        const total = Number(cart.total_amount);
+        const balance = Number(cart.balance);
         const sufficientBalance = Number.isFinite(total) && Number.isFinite(balance) && balance >= total;
 
         balanceWarning.hidden = sufficientBalance;
@@ -154,14 +145,13 @@
             ? ""
             : "Your practice balance is too low. Add funds to continue.";
         checkoutButton.disabled = isMutating || itemCount === 0 || !sufficientBalance;
-        checkoutButton.textContent = `Pay ${formatMoney(cart.total)} from wallet`;
+        checkoutButton.textContent = `Pay ${formatMoney(cart.total_amount)} from wallet`;
         orderItems.querySelectorAll(".order-item").forEach((row) => {
             const quantity = Number(row.dataset.quantity);
-            const stock = Number(row.dataset.stockQuantity);
             const decrease = row.querySelector('[data-cart-step="-1"]');
             const increase = row.querySelector('[data-cart-step="1"]');
             decrease.disabled = isMutating || quantity < 1;
-            increase.disabled = isMutating || quantity >= stock;
+            increase.disabled = isMutating;
         });
     }
 
@@ -241,9 +231,8 @@
 
         const row = button.closest(".order-item");
         const currentQuantity = Number(row.dataset.quantity);
-        const stockQuantity = Number(row.dataset.stockQuantity);
         const step = Number(button.dataset.cartStep);
-        const nextQuantity = Math.min(stockQuantity, Math.max(0, currentQuantity + step));
+        const nextQuantity = Math.max(0, currentQuantity + step);
         if (nextQuantity !== currentQuantity) {
             changeQuantity(row.dataset.productId, nextQuantity);
         }

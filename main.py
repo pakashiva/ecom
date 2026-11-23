@@ -1,7 +1,7 @@
 from flask import Flask , render_template, request, redirect, url_for, flash , jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import engine
-from initialize_db.models import users , products , account
+from initialize_db.models import users , products , account , order_items , orders
 from app_config import app , jwt , redis_client
 from flask_jwt_extended import (
     create_access_token , set_access_cookies , jwt_required,
@@ -18,8 +18,152 @@ def home():
 @app.route("/orders")
 @jwt_required()
 def my_orders():
-
     return render_template("orders.html")
+
+#GET /api/cart
+@app.route("/api/cart" , methods = ['GET'])
+@jwt_required()
+def get_cart_items():
+
+    user_id = int(get_jwt_identity())
+
+    from sqlalchemy import select
+
+    stmt = select(
+        order_items.c.quantity,
+        order_items.c.unit_price,
+        products.c.product_id,
+        products.c.product_name,
+        products.c.category
+    ).select_from(
+        orders
+    ).join(
+        order_items,
+        orders.c.order_id == order_items.c.order_id
+    ).join(
+        products,
+        order_items.c.product_id == products.c.product_id
+    ).where(
+        orders.c.user_id == user_id,
+        orders.c.status == "cart"
+    )
+
+    bal_stmt = select(
+        account.c.balance
+    ).select_from(
+        account
+    ).where(account.c.user_id == user_id)
+
+    with engine.begin() as connection:
+        rows = connection.execute(stmt).mappings().all()
+        userBalance = connection.execute(bal_stmt).scalar_one_or_none()
+
+    items = [
+        {
+        "product_name" : row["product_name"],
+        "product_id" : row["product_id"],
+        "quantity" : row["quantity"],
+        "unit_price" : row["unit_price"],
+        "category" : row["category"]
+     } for row in rows
+    ]
+
+    total_amount = 0
+
+    for item in items:
+        total_amount += Decimal((item["unit_price"] * item["quantity"]))
+
+    return jsonify({
+        "items" : items,
+        "total_amount" : str(total_amount),
+        "balance" : str(userBalance)
+    })
+
+#POST /api/cart/items
+
+@app.route("/api/cart/items" , methods = ['POST'])
+@jwt_required()
+def add_items():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("items"), list) or not data["items"]:
+        return jsonify(error="items must be a non-empty list"), 400
+
+    requested_items = []
+    seen_product_ids = set()
+    for item in data["items"]:
+        if not isinstance(item, dict):
+            return jsonify(error="Each item must include product_id and quantity"), 400
+
+        try:
+            raw_product_id = item["product_id"]
+            raw_quantity = item["quantity"]
+            product_id = int(raw_product_id)
+            quantity = int(raw_quantity)
+        except (KeyError, TypeError, ValueError):
+            return jsonify(error="product_id and quantity must be integers"), 400
+
+        if isinstance(raw_product_id, bool) or str(raw_product_id).strip() != str(product_id):
+            return jsonify(error="product_id must be a whole number"), 400
+        if isinstance(raw_quantity, bool) or str(raw_quantity).strip() != str(quantity):
+            return jsonify(error="quantity must be a whole number"), 400
+        if product_id < 1 or quantity < 1:
+            return jsonify(error="product_id and quantity must be positive"), 400
+        if product_id in seen_product_ids:
+            return jsonify(error="Each product may appear only once"), 400
+
+        seen_product_ids.add(product_id)
+        requested_items.append({"product_id": product_id, "quantity": quantity})
+
+    user_id = int(get_jwt_identity())
+    from sqlalchemy import insert, select
+
+    try:
+        with engine.begin() as connection:
+            product_rows = connection.execute(
+                select(
+                    products.c.product_id,
+                    products.c.price,
+                    products.c.stock_quantity,
+                )
+                .where(products.c.product_id.in_(seen_product_ids))
+                .order_by(products.c.product_id)
+            ).mappings().all()
+            product_by_id = {row["product_id"]: row for row in product_rows}
+            missing_ids = [product_id for product_id in seen_product_ids if product_id not in product_by_id]
+            if missing_ids:
+                return jsonify(error="One or more products were not found", product_ids=missing_ids), 404
+
+            for item in requested_items:
+                product = product_by_id[item["product_id"]]
+                if item["quantity"] > product["stock_quantity"]:
+                    return jsonify(
+                        error=f"Not enough stock for product {item['product_id']}",
+                        product_id=item["product_id"],
+                        available_stock=product["stock_quantity"],
+                    ), 409
+
+            order_id = connection.execute(
+                insert(orders)
+                .values(user_id=user_id, status="cart")
+                .returning(orders.c.order_id)
+            ).scalar_one()
+
+            order_item_rows = [
+                {
+                    "order_id": order_id,
+                    "product_id": item["product_id"],
+                    "quantity": item["quantity"],
+                    "unit_price": product_by_id[item["product_id"]]["price"],
+                }
+                for item in requested_items
+            ]
+            connection.execute(insert(order_items), order_item_rows)
+
+        return jsonify(message="Cart created successfully", order_id=order_id), 201
+    except Exception:
+        app.logger.exception("Could not create cart order")
+        return jsonify(error="Could not create cart order"), 500
+
 
 @app.route("/wallet" , methods = ['GET'])
 @jwt_required()
