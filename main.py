@@ -30,6 +30,7 @@ def get_cart_items():
     from sqlalchemy import select
 
     stmt = select(
+        orders.c.order_id,
         order_items.c.quantity,
         order_items.c.unit_price,
         products.c.product_id,
@@ -60,6 +61,7 @@ def get_cart_items():
 
     items = [
         {
+        "order_id": row["order_id"],
         "product_name" : row["product_name"],
         "product_id" : row["product_id"],
         "quantity" : row["quantity"],
@@ -164,6 +166,176 @@ def add_items():
         app.logger.exception("Could not create cart order")
         return jsonify(error="Could not create cart order"), 500
 
+#PATCH /api/cart/items/<product_id>
+
+@app.route("/api/orders/<order_id>/items/<product_id>" , methods = ['PATCH'])
+@jwt_required()
+def update_quantity(product_id , order_id):
+
+    user_id = int(get_jwt_identity())
+    new_quantity = request.get_json()
+
+    if product_id is None or new_quantity is None:
+        return jsonify({"quantity"  : "Invalid"})
+
+    from sqlalchemy import update
+
+    stmt = update(order_items
+            ).values(quantity = int(new_quantity["quantity"])
+            ).where(order_items.c.product_id == int(product_id),
+                 order_items.c.order_id == int(order_id)
+            ).returning(order_items.c.quantity)
+
+    try:
+        with engine.begin() as connection:
+            qt = connection.execute(stmt).scalar_one_or_none()
+
+    except Exception as e:
+        return jsonify({"quantity"  : str(e)})
+
+    return jsonify({"quantity" : str(qt)})
+
+# DELETE /api/orders/<order_id>/items/<product_id>
+
+@app.route("/api/orders/<order_id>/items/<product_id>" , methods = ['DELETE'])
+@jwt_required()
+def delete_item(order_id , product_id):
+
+    from sqlalchemy import delete
+
+    stmt = delete(order_items
+            ).where(order_items.c.product_id == int(product_id),
+                    order_items.c.order_id == int(order_id))
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(stmt)
+
+        return jsonify({"message" : "Success"})
+
+    except Exception as e:
+
+        return jsonify({"message" : str(e)})
+
+@app.route("/api/orders/checkout" , methods = ['POST'])
+@jwt_required()
+def check_out():
+    from sqlalchemy import select, update
+
+    try:
+        data = request.get_json()
+        user_id = int(get_jwt_identity())
+        total_amount = Decimal(str(data["total_amount"]))
+        items = data["items"]
+        order_ids = {int(item["order_id"]) for item in items}
+        order_id = min(order_ids)
+
+        with engine.begin() as connection:
+            balance = connection.execute(
+                select(account.c.balance)
+                .where(account.c.user_id == user_id)
+                .with_for_update()
+            ).scalar_one()
+
+            if total_amount > balance:
+                return jsonify(error="Insufficient wallet balance"), 409
+
+            connection.execute(
+                update(orders)
+                .where(
+                    orders.c.order_id.in_(order_ids),
+                    orders.c.user_id == user_id,
+                    orders.c.status == "cart",
+                )
+                .values(status="paid")
+            )
+
+            connection.execute(
+                update(account)
+                .where(account.c.user_id == user_id)
+                .values(balance=account.c.balance - total_amount)
+            )
+
+            for item in items:
+                connection.execute(
+                    update(products)
+                    .where(products.c.product_id == int(item["product_id"]))
+                    .values(
+                        stock_quantity=(
+                            products.c.stock_quantity - int(item["quantity"])
+                        )
+                    )
+                    .returning(products.c.product_id)
+                ).scalar_one()
+
+        return jsonify(
+            message="Order placed successfully",
+            order_id=order_id,
+            order_ids=sorted(order_ids),
+            total_amount=str(total_amount),
+        ), 200
+    except Exception as e:
+        app.logger.exception("Checkout failed")
+        return jsonify(error=str(e)), 500
+
+@app.route("/api/orders/paid", methods=["GET"])
+@jwt_required()
+def get_paid_orders():
+    user_id = int(get_jwt_identity())
+    from sqlalchemy import select
+
+    stmt = (
+        select(
+            orders.c.order_id,
+            orders.c.created_at,
+            order_items.c.product_id,
+            products.c.product_name,
+            order_items.c.quantity,
+            order_items.c.unit_price,
+        )
+        .select_from(orders)
+        .join(order_items, orders.c.order_id == order_items.c.order_id)
+        .join(products, order_items.c.product_id == products.c.product_id)
+        .where(
+            orders.c.user_id == user_id,
+            orders.c.status == "paid",
+        )
+        .order_by(orders.c.created_at.desc(), orders.c.order_id.desc())
+    )
+
+    with engine.connect() as connection:
+        rows = connection.execute(stmt).mappings().all()
+
+    paid_orders = {}
+    for row in rows:
+        order_id = row["order_id"]
+        order = paid_orders.setdefault(
+            order_id,
+            {
+                "order_id": order_id,
+                "created_at": row["created_at"].isoformat(),
+                "items": [],
+                "total_amount": Decimal("0.00"),
+            },
+        )
+        line_total = row["unit_price"] * row["quantity"]
+        order["items"].append(
+            {
+                "product_id": row["product_id"],
+                "product_name": row["product_name"],
+                "quantity": row["quantity"],
+                "unit_price": str(row["unit_price"]),
+                "line_total": str(line_total),
+            }
+        )
+        order["total_amount"] += line_total
+
+    return jsonify(
+        orders=[
+            {**order, "total_amount": str(order["total_amount"])}
+            for order in paid_orders.values()
+        ]
+    )
 
 @app.route("/wallet" , methods = ['GET'])
 @jwt_required()
@@ -307,7 +479,6 @@ def get_list():
         )
 
 
-    
 # Login , singup , logout
 
 @app.route('/login' , methods = ['GET' , 'POST'])

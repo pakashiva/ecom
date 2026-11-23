@@ -11,6 +11,8 @@
     const emptyState = document.getElementById("orders-empty");
     const confirmation = document.getElementById("order-confirmation");
     const confirmationDetail = document.getElementById("confirmation-detail");
+    const paidOrdersState = document.getElementById("paid-orders-state");
+    const paidOrdersList = document.getElementById("paid-orders-list");
 
     let cart = null;
     let isMutating = false;
@@ -51,9 +53,13 @@
 
     function createOrderItem(item) {
         const productId = String(item.product_id);
+        if (item.order_id === undefined || item.order_id === null) {
+            throw new Error("Cart API item is missing order_id");
+        }
         const quantity = Number(item.quantity);
         const row = document.createElement("article");
         row.className = "order-item";
+        row.dataset.orderId = String(item.order_id);
         row.dataset.productId = productId;
         row.dataset.quantity = String(quantity);
 
@@ -178,16 +184,68 @@
         }
     }
 
-    async function changeQuantity(productId, nextQuantity) {
+    function createPaidOrder(order) {
+        const article = document.createElement("article");
+        article.className = "paid-order-card";
+
+        const heading = document.createElement("div");
+        heading.className = "paid-order-card-heading";
+        const orderLabel = document.createElement("h3");
+        orderLabel.textContent = `Order #${order.order_id}`;
+        const date = document.createElement("time");
+        date.dateTime = String(order.created_at);
+        const parsedDate = new Date(order.created_at);
+        date.textContent = Number.isNaN(parsedDate.getTime())
+            ? String(order.created_at)
+            : parsedDate.toLocaleString("en-IN");
+        heading.append(orderLabel, date);
+
+        const lines = document.createElement("ul");
+        lines.className = "paid-order-lines";
+        for (const item of order.items) {
+            const line = document.createElement("li");
+            line.textContent = `${item.product_name} × ${item.quantity} — ${formatMoney(item.line_total)}`;
+            lines.append(line);
+        }
+
+        const total = document.createElement("p");
+        total.className = "paid-order-total";
+        total.textContent = `Paid ${formatMoney(order.total_amount)}`;
+        article.append(heading, lines, total);
+        return article;
+    }
+
+    async function loadPaidOrders() {
+        paidOrdersState.textContent = "Loading placed orders…";
+        paidOrdersList.replaceChildren();
+        try {
+            const data = await sendRequest("/api/orders/paid");
+            if (!Array.isArray(data.orders)) {
+                throw new Error("Placed orders API response must include an orders array");
+            }
+            if (data.orders.length === 0) {
+                paidOrdersState.textContent = "You haven’t placed an order yet.";
+                return;
+            }
+            paidOrdersList.replaceChildren(...data.orders.map(createPaidOrder));
+            paidOrdersState.textContent = "";
+        } catch (error) {
+            paidOrdersState.textContent = "Placed orders are unavailable right now.";
+            showMessage(error.message);
+        }
+    }
+
+    async function changeQuantity(orderId, productId, nextQuantity) {
         if (isMutating) return;
         isMutating = true;
         syncCheckout();
 
+        const itemUrl = `/api/orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(productId)}`;
         try {
             if (nextQuantity === 0) {
-                await sendRequest(`/api/cart/items/${encodeURIComponent(productId)}`, { method: "DELETE" });
+                await sendRequest(itemUrl, { method: "DELETE" });
             } else {
-                await sendRequest(`/api/cart/items/${encodeURIComponent(productId)}`, {
+                await sendRequest(itemUrl, {
                     method: "PATCH",
                     body: JSON.stringify({ quantity: nextQuantity }),
                 });
@@ -209,13 +267,25 @@
         checkoutButton.textContent = "Processing practice order…";
 
         try {
-            const result = await sendRequest("/api/orders/checkout", { method: "POST" });
+            const payload = {
+                total_amount: cart.total_amount,
+                items: cart.items.map((item) => ({
+                    order_id: item.order_id,
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                })),
+            };
+            const result = await sendRequest("/api/orders/checkout", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
             orderContent.hidden = true;
             emptyState.hidden = true;
             ordersState.hidden = true;
             confirmation.hidden = false;
             const orderNumber = result.order_id ? ` #${result.order_id}` : "";
             confirmationDetail.textContent = `Practice order${orderNumber} is complete. No real payment was made.`;
+            await loadPaidOrders();
         } catch (error) {
             showMessage(error.message);
             await loadCart(false);
@@ -234,10 +304,11 @@
         const step = Number(button.dataset.cartStep);
         const nextQuantity = Math.max(0, currentQuantity + step);
         if (nextQuantity !== currentQuantity) {
-            changeQuantity(row.dataset.productId, nextQuantity);
+            changeQuantity(row.dataset.orderId, row.dataset.productId, nextQuantity);
         }
     });
 
     checkoutButton.addEventListener("click", checkout);
     loadCart();
+    loadPaidOrders();
 })();

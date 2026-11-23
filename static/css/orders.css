@@ -52,6 +52,18 @@
 .orders-empty .button,.order-confirmation .button{margin-top:4px}
 .order-confirmation .eyebrow{justify-content:center;margin:20px 0 0}
 .confirmation-mark{background:#dce8b1;color:var(--green);font-family:var(--sans);font-size:21px}
+.paid-orders-section{margin-top:58px;padding-top:28px;border-top:1px solid var(--line)}
+.paid-orders-heading{display:flex;align-items:end;justify-content:space-between;margin-bottom:18px}
+.paid-orders-heading .eyebrow{margin-bottom:7px}
+.paid-orders-heading h2{margin:0;font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-.03em}
+.paid-orders-state{color:var(--muted);font-size:11px}
+.paid-orders-list{display:grid;gap:14px}
+.paid-order-card{padding:19px 21px;background:#eeefe8}
+.paid-order-card-heading{display:flex;justify-content:space-between;gap:16px;align-items:baseline}
+.paid-order-card-heading h3{margin:0;font-size:13px;font-weight:600}
+.paid-order-card-heading time{color:#74796f;font-size:10px}
+.paid-order-lines{display:grid;gap:7px;margin:14px 0;padding:0;list-style:none;color:#62685d;font-size:11px}
+.paid-order-total{margin:0;padding-top:12px;border-top:1px solid #d5d8ce;text-align:right;color:var(--ink);font-size:11px;font-weight:600}
 @media(max-width:850px){.order-content{grid-template-columns:minmax(0,1fr) 290px;gap:24px}.order-item{grid-template-columns:78px minmax(0,1fr) auto;gap:13px}.order-item-image{width:78px;height:96px}.order-item-price{min-width:75px}}
 @media(max-width:680px){.orders-main{width:min(100% - 32px,1120px);padding:25px 0 60px}.orders-heading{align-items:start;flex-direction:column;margin:36px 0 25px}.orders-step{display:none}.order-content{grid-template-columns:1fr;gap:25px}.order-summary{position:static;order:-1}.order-item{grid-template-columns:68px minmax(0,1fr) auto;gap:11px}.order-item-image{width:68px;height:83px}.order-item-price{min-width:65px}.order-item-name{font-size:11px}.orders-header .account-nav{gap:12px}}
 @media(max-width:400px){.order-item{grid-template-columns:56px minmax(0,1fr) auto;gap:9px}.order-item-image{width:56px;height:70px}.order-item-price{min-width:58px}.order-item-price strong{font-size:10px}}

@@ -17,7 +17,7 @@ app.config.update(
     JWT_COOKIE_SAMESITE="Lax",
     JWT_COOKIE_CSRF_PROTECT=False,
     JWT_CSRF_CHECK_FORM=True,
-    JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=15),
+    JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=225),
 )
 
 jwt = JWTManager(app)
