@@ -9,16 +9,110 @@ from flask_jwt_extended import (
 import time , json
 from decimal import Decimal, InvalidOperation
 
+# =====================================================
+# Helping functions
+# =====================================================
+def authorizeUser(user_id : int):
+    from sqlalchemy import select
+    stmt = select(users.c.role).where(users.c.id == user_id)
+
+    with engine.begin() as connection:
+        role = connection.execute(stmt).scalar_one_or_none()
+
+    if role != 'admin':
+        return 0
+    
+    return 1
+
+def get_page_data(page:int , page_size:int , category:str):
+    if page < 1:
+        return "Invalide page number."
+        
+    page_size = min(page_size , 12)
+
+    allowed_categories = {
+        "All",
+        "Electronics",
+        "Home",
+        "Stationery",
+        "Accessories",
+    }
+
+    if category not in allowed_categories:
+        return "Invalid category or category does not exists."
+    from sqlalchemy import select , func
+
+    cnt_stmt = select(func.count()).select_from(products)
+
+    if category != "All":
+        cnt_stmt = select(func.count()).select_from(products).where(products.c.category == category)
+
+    with engine.begin() as connection:
+            total_items = connection.execute(cnt_stmt).scalar_one()
+
+    total_pages = max(1 , (total_items + page_size-1) // page_size )
+    page = min(total_pages , page)
+    offset = (page - 1) * page_size
+
+    product_stmt = select(
+                products.c.product_id,
+                products.c.product_name,
+                products.c.category,
+                products.c.price,
+                products.c.stock_quantity, 
+            ).where(
+            ).order_by(products.c.product_id
+            ).limit(page_size
+            ).offset(offset)
+
+    if category != "All":
+        product_stmt = select(
+            products.c.product_id,
+            products.c.product_name,
+            products.c.category,
+            products.c.price,
+            products.c.stock_quantity, 
+        ).where(products.c.category == category
+        ).order_by(products.c.product_id
+        ).limit(page_size
+        ).offset(offset)
+
+    with engine.begin() as connection:
+        rows = connection.execute(product_stmt).mappings().all()
+
+    items = [
+        {
+            "product_id" : row["product_id"],
+            "product_name": row["product_name"],
+            "category": row["category"],
+            "price": str(row["price"]),
+            "stock_quantity": row["stock_quantity"],
+        }
+        for row in rows
+    ]
+
+    return jsonify(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total_items=total_items,
+        total_pages=total_pages,
+        )
+
+
+
 @app.route("/")
 @jwt_required(optional=True)
 def home():
     user_id = get_jwt_identity()
-    return render_template("index.html", logged_in=user_id is not None)
+    is_admin = bool(user_id is not None and authorizeUser(int(user_id)))
+    return render_template("index.html", logged_in=user_id is not None, is_admin=is_admin)
 
 @app.route("/orders")
 @jwt_required()
 def my_orders():
-    return render_template("orders.html")
+    is_admin = bool(authorizeUser(int(get_jwt_identity())))
+    return render_template("orders.html", is_admin=is_admin)
 
 #GET /api/cart
 @app.route("/api/cart" , methods = ['GET'])
@@ -340,7 +434,8 @@ def get_paid_orders():
 @app.route("/wallet" , methods = ['GET'])
 @jwt_required()
 def wallet_page():
-    return render_template("wallet.html")
+    is_admin = bool(authorizeUser(int(get_jwt_identity())))
+    return render_template("wallet.html", is_admin=is_admin)
 
 @app.route("/api/wallet" , methods = ['GET'])
 @jwt_required()
@@ -403,81 +498,80 @@ def get_list():
     page_size = int(request.args.get("page_size" , "12"))
     category = request.args.get("category" , "All")
 
-    if page < 1:
-        return "Invalide page number."
+    return get_page_data(page=page , page_size=page_size , category=category)
+
+# GET /inventory
+
+@app.route("/inventory" , methods = ['GET'])
+@jwt_required()
+def inventory():
+    user_id = int(get_jwt_identity())
+    result = authorizeUser(user_id=user_id)
+
+    if result == 0:
+        flash("Unauthorized access" , 401)
+        return redirect(url_for("login"))
+
+    return render_template("inventory.html", is_admin=True)
+
+# GET /api/admin/products
+
+@app.route("/api/admin/products" , methods = ['GET'])
+@jwt_required()
+def get_products_admin():
+    user_id = int(get_jwt_identity())
+    result = authorizeUser(user_id=user_id)
+
+    if result == 0:
+        flash("Unauthorized access" , 401)
+        return redirect(url_for("login"))
+
+    page = int(request.args.get("page" , "1"))
+    page_size = int(request.args.get("page_size" , "12"))
+    category = request.args.get("category" , "All")
     
-    page_size = min(page_size , 12)
+    return get_page_data(page=page , page_size=page_size , category=category)
 
-    allowed_categories = {
-        "All",
-        "Electronics",
-        "Home",
-        "Stationery",
-        "Accessories",
-    }
+# PATCH /api/admin/products/<product_id>
 
+@app.route('/api/admin/products/<product_id>' , methods = ['PATCH'])
+@jwt_required()
+def update_products(product_id):
 
-    if category not in allowed_categories:
-        return "Invalid category or category does not exists."
-    from sqlalchemy import select , func
+    user_id = int(get_jwt_identity())
 
-    cnt_stmt = select(func.count()).select_from(products)
+    result = authorizeUser(user_id=user_id)
+    if result == 0:
+        flash("Unauthorized access" , 401)
+        return redirect(url_for("login"))
 
-    if category != "All":
-        cnt_stmt = select(func.count()).select_from(products).where(products.c.category == category)
+    product_id = int(product_id)
 
-    with engine.begin() as connection:
-            total_items = connection.execute(cnt_stmt).scalar_one()
+    required_changes = request.get_json()
 
-    total_pages = max(1 , (total_items + page_size-1) // page_size )
-    page = min(total_pages , page)
-    offset = (page - 1) * page_size
+    # {"price":"125.00","stock_quantity":10}
 
-    product_stmt = select(
-                products.c.product_id,
-                products.c.product_name,
-                products.c.category,
-                products.c.price,
-                products.c.stock_quantity, 
-            ).where(
-            ).order_by(products.c.product_id
-            ).limit(page_size
-            ).offset(offset)
+    from sqlalchemy import update
 
-    if category != "All":
-        product_stmt = select(
-            products.c.product_id,
-            products.c.product_name,
-            products.c.category,
-            products.c.price,
-            products.c.stock_quantity, 
-        ).where(products.c.category == category
-        ).order_by(products.c.product_id
-        ).limit(page_size
-        ).offset(offset)
+    price = Decimal(required_changes["price"])
+    stock_quantity = int(required_changes["stock_quantity"])
 
-    with engine.begin() as connection:
-        rows = connection.execute(product_stmt).mappings().all()
+    stmt = update(products
+            ).values(price = price ,
+                    stock_quantity = stock_quantity
+                    ).where(products.c.product_id == product_id)
 
-    items = [
-        {
-            "product_id" : row["product_id"],
-            "product_name": row["product_name"],
-            "category": row["category"],
-            "price": str(row["price"]),
-            "stock_quantity": row["stock_quantity"],
-        }
-        for row in rows
-    ]
+    try:
+        with engine.begin() as connection:
+            connection.execute(stmt)
 
-    return jsonify(
-        items=items,
-        page=page,
-        page_size=page_size,
-        total_items=total_items,
-        total_pages=total_pages,
-        )
+            return jsonify({"message":"Product updated",
+                            "product":{"price":price,
+                                    "stock_quantity":stock_quantity}})
+        
+    except Exception as e:
 
+        return jsonify({"message" : str(e)})
 
 # Login , singup , logout
 

@@ -19,6 +19,9 @@
         </a>
         <nav class="account-nav" aria-label="Account">
             <a class="wallet-nav-link" href="/wallet">Wallet</a>
+            {% if is_admin|default(false) %}
+                <a class="wallet-nav-link" href="/inventory">Inventory</a>
+            {% endif %}
             <a class="login-link" href="/">Shop</a>
             <form action="/logout" method="post" class="logout-form">
                 <button class="button button-dark button-small" type="submit">Log out</button>

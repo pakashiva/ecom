@@ -24,6 +24,9 @@
             {% if logged_in|default(false) %}
                 <a class="wallet-nav-link" href="/wallet">Wallet</a>
                 <a class="wallet-nav-link" href="/orders">My orders</a>
+                {% if is_admin|default(false) %}
+                    <a class="wallet-nav-link" href="/inventory">Inventory</a>
+                {% endif %}
                 <form action="/logout" method="post" class="logout-form">
                     <button class="button button-dark button-small" type="submit">Log out</button>
                 </form>
