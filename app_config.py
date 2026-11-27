@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, flash, jsonify, redirect, request, url_for
 from flask_jwt_extended import JWTManager
 import redis
 import os
@@ -34,3 +34,28 @@ redis_client = redis.Redis(
 def is_revoked(token_header , payload):
     token_id = payload["jti"]
     return redis_client.exists(f"revoked:{token_id}") > 0
+
+
+def login_required_response():
+    message = "Please log in to continue."
+
+    if request.path.startswith("/api/") or request.accept_mimetypes.best == "application/json":
+        return jsonify(error=message), 401
+
+    flash(message, "info")
+    return redirect(url_for("login"))
+
+
+@jwt.unauthorized_loader
+def missing_token_response(_reason):
+    return login_required_response()
+
+
+@jwt.expired_token_loader
+def expired_token_response(_jwt_header, _jwt_payload):
+    return login_required_response()
+
+
+@jwt.revoked_token_loader
+def revoked_token_response(_jwt_header, _jwt_payload):
+    return login_required_response()
